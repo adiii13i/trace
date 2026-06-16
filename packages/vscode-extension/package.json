@@ -1,0 +1,54 @@
+{
+  "name": "trace-context-bridge",
+  "displayName": "trace — Context Bridge",
+  "description": "Pull assigned tasks and trigger verification from VS Code",
+  "version": "0.1.0",
+  "engines": { "vscode": "^1.89.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "trace.fetchTasks",     "title": "trace: Fetch My Tasks" },
+      { "command": "trace.openTask",       "title": "trace: Open Task" },
+      { "command": "trace.setApiUrl",      "title": "trace: Set API URL" },
+      { "command": "trace.setToken",       "title": "trace: Set Auth Token" }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "trace", "title": "trace", "icon": "$(tasklist)" }
+      ]
+    },
+    "views": {
+      "trace": [
+        { "id": "trace.tasksView", "name": "My Tasks" }
+      ]
+    },
+    "configuration": {
+      "title": "trace",
+      "properties": {
+        "trace.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:4000",
+          "description": "trace API base URL"
+        },
+        "trace.token": {
+          "type": "string",
+          "default": "",
+          "description": "JWT auth token (paste from trace web app)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/vscode": "^1.89.0",
+    "typescript": "^5.5.0",
+    "@vscode/vsce": "^2.27.0"
+  }
+}
