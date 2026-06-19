@@ -11,7 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 const MANAGER_NAV = [
   { label: 'Dashboard',    href: '/dashboard',  icon: LayoutGrid },
   { label: 'Tasks',        href: '/tasks',      icon: CheckSquare },
-  { label: 'Repositories', href: '/repos',      icon: GitBranch },
+  { label: 'Repositories', href: '/repositories', icon: GitBranch },
   { label: 'Analytics',    href: '/analytics',  icon: BarChart2 },
   { label: 'Team',         href: '/team',       icon: Users },
 ];
@@ -19,7 +19,7 @@ const MANAGER_NAV = [
 const DEV_NAV = [
   { label: 'Dashboard',    href: '/dashboard',  icon: LayoutGrid },
   { label: 'Tasks',        href: '/developer',  icon: CheckSquare },
-  { label: 'Repositories', href: '/repos',      icon: GitBranch },
+  { label: 'Repositories', href: '/repositories', icon: GitBranch },
   { label: 'Analytics',    href: '/analytics',  icon: BarChart2 },
   { label: 'Team',         href: '/team',       icon: Users },
 ];
@@ -36,14 +36,12 @@ export function Sidebar({ view }: { view: 'manager' | 'developer' }) {
       border-r border-zinc-800 dark:border-zinc-800
       bg-zinc-950 dark:bg-zinc-950
     ">
-      {/* Logo */}
       <div className="px-4 py-4 border-b border-zinc-800">
         <span className="font-mono text-sm font-semibold tracking-tight text-zinc-100">
           trace
         </span>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 pt-2">
         {nav.map(({ label, href, icon: Icon }) => {
           const active = pathname === href;
@@ -66,7 +64,6 @@ export function Sidebar({ view }: { view: 'manager' | 'developer' }) {
         })}
       </nav>
 
-      {/* Bottom */}
       <div className="border-t border-zinc-800">
         <Link
           href="/settings"

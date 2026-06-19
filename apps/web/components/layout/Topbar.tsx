@@ -3,6 +3,7 @@ import { Bell, Mail } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 interface TopbarProps {
   title?: string;
@@ -10,30 +11,40 @@ interface TopbarProps {
   actions?: React.ReactNode;
 }
 
+const TABS = [
+  { label: 'Deployments', href: '/dashboard' },
+  { label: 'Logs',        href: '/logs' },
+  { label: 'Network',     href: '/network' },
+];
+
 export function Topbar({ actions }: TopbarProps) {
   const { user } = useAuth();
+  const pathname = usePathname();
 
   return (
     <header className="
       flex items-center gap-3 h-10 px-4 flex-shrink-0
       border-b border-zinc-800
     ">
-      {/* Nav links */}
       <nav className="flex items-center">
-        {['Deployments', 'Logs', 'Network'].map((item, i) => (
-          <button
-            key={item}
-            className={`
-              font-mono text-[10px] px-3 h-10 flex items-center
-              border-b-2 transition-colors
-              ${i === 0
-                ? 'border-zinc-300 text-zinc-100'
-                : 'border-transparent text-zinc-500 hover:text-zinc-300'}
-            `}
-          >
-            {item}
-          </button>
-        ))}
+        {TABS.map(({ label, href }) => {
+          const active = pathname === href;
+          return (
+            <Link
+              key={label}
+              href={href}
+              className={`
+                font-mono text-[10px] px-3 h-10 flex items-center
+                border-b-2 transition-colors
+                ${active
+                  ? 'border-zinc-300 text-zinc-100'
+                  : 'border-transparent text-zinc-500 hover:text-zinc-300'}
+              `}
+            >
+              {label}
+            </Link>
+          );
+        })}
       </nav>
 
       <div className="ml-auto flex items-center gap-2">
