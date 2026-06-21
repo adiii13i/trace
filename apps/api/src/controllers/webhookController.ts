@@ -14,7 +14,7 @@ export async function handleGithubPush(req: Request, res: Response): Promise<voi
   const payload:      any    = (req as any).parsedPayload;
   const project:      any    = (req as any).project;
   const commits:      any[]  = payload?.commits ?? [];
-  const pusherLogin:  string = payload?.pusher?.login ?? '';
+  const pusherLogin:  string = payload?.sender?.login ?? '';
 
   if (!pusherLogin || commits.length === 0) {
     res.status(200).json({ skipped: true });

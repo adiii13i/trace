@@ -6,6 +6,7 @@ import {
   getProjectById,
   addTeamMember,
   removeTeamMember,
+  deleteProject,
 } from '../controllers/projectController';
 import { getProjectTasks, assignTask } from '../controllers/taskController';
 
@@ -16,6 +17,7 @@ router.use(requireAuth);
 router.get('/',                    getProjects);
 router.post('/',                   createProject);
 router.get('/:id',                 getProjectById);
+router.delete('/:id',              deleteProject);
 router.get('/:projectId/tasks',    getProjectTasks);
 router.patch('/tasks/:id/assign',  assignTask);
 router.post('/:id/team',           addTeamMember);

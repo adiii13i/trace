@@ -149,3 +149,28 @@ export async function removeTeamMember(req: Request, res: Response): Promise<voi
     res.status(500).json({ error: 'Internal server error' });
   }
 }
+
+export async function deleteProject(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).userId;
+    const { id } = req.params;
+
+    const project = await Project.findById(id);
+    if (!project) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+
+    if (String(project.createdBy) !== String(userId)) {
+      res.status(403).json({ error: 'Only the project creator can delete this project' });
+      return;
+    }
+
+    await Task.deleteMany({ project: project._id });
+    await project.deleteOne();
+
+    res.json({ deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}

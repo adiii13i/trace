@@ -1,12 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Topbar } from '@/components/layout/Topbar';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { apiFetch, getUser } from '@/lib/auth';
-import { ArrowLeft, UserPlus, X } from 'lucide-react';
+import { ArrowLeft, UserPlus, X, Trash2, CheckCircle } from 'lucide-react';
 
 interface Task {
   _id: string;
@@ -30,11 +30,13 @@ interface Project {
   webhookSecret: string;
   tasks: Task[];
   team: any[];
+  createdBy: string;
 }
 
 export default function ProjectDetailPage() {
   const params = useParams();
   const id = params?.id as string;
+  const router = useRouter();
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,6 +46,9 @@ export default function ProjectDetailPage() {
   const [teamEmail, setTeamEmail] = useState('');
   const [teamError, setTeamError] = useState('');
   const [addingMember, setAddingMember] = useState(false);
+  const [deletingProject, setDeletingProject] = useState(false);
+
+  const currentUser = getUser();
 
   useEffect(() => {
     if (!id) return;
@@ -69,7 +74,7 @@ export default function ProjectDetailPage() {
   const tasks = project ? project.tasks : [];
   const verifiedCount = tasks.filter(function (t) { return t.status === 'verified'; }).length;
   const progress = tasks.length > 0 ? Math.round((verifiedCount / tasks.length) * 100) : 0;
-  const currentUser = getUser();
+  const isCreator = project && currentUser && currentUser.id && String(project.createdBy) === String(currentUser.id);
 
   function handleAssign(taskId: string, userId: string | null) {
     apiFetch('/api/projects/tasks/' + taskId + '/assign', {
@@ -142,6 +147,64 @@ export default function ProjectDetailPage() {
       .catch(function () {});
   }
 
+  function handleOverrideTask(taskId: string) {
+    const ok = confirm('Mark this task as verified? This bypasses AI verification and should only be used after manual review.');
+    if (!ok) return;
+    apiFetch('/api/tasks/' + taskId + '/override', { method: 'PATCH' })
+      .then(function (res) {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then(function (updated) {
+        if (!updated) return;
+        setProject(function (prev) {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            tasks: prev.tasks.map(function (t) {
+              return t._id === taskId ? { ...t, ...updated } : t;
+            }),
+          };
+        });
+      })
+      .catch(function () {});
+  }
+
+  function handleDeleteTask(taskId: string) {
+    const ok = confirm('Delete this task permanently? This cannot be undone.');
+    if (!ok) return;
+    apiFetch('/api/tasks/' + taskId, { method: 'DELETE' })
+      .then(function (res) {
+        if (!res.ok) return;
+        setProject(function (prev) {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            tasks: prev.tasks.filter(function (t) { return t._id !== taskId; }),
+          };
+        });
+      })
+      .catch(function () {});
+  }
+
+  function handleDeleteProject() {
+    if (!project) return;
+    const ok = confirm('Delete "' + project.name + '" permanently? All tasks will be deleted too. This cannot be undone.');
+    if (!ok) return;
+    setDeletingProject(true);
+    apiFetch('/api/projects/' + project._id, { method: 'DELETE' })
+      .then(function (res) {
+        if (res.ok) {
+          router.push('/dashboard');
+        } else {
+          setDeletingProject(false);
+        }
+      })
+      .catch(function () {
+        setDeletingProject(false);
+      });
+  }
+
   return (
     <div>
       <Topbar />
@@ -167,7 +230,19 @@ export default function ProjectDetailPage() {
             </p>
             <div className="flex items-center justify-between mb-1">
               <h1 className="text-lg font-medium tracking-tight text-zinc-100">{project.name}</h1>
-              <span className="font-mono text-[10px] text-zinc-500">{progress}%</span>
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-[10px] text-zinc-500">{progress}%</span>
+                {isCreator ? (
+                  <button
+                    onClick={handleDeleteProject}
+                    disabled={deletingProject}
+                    className="flex items-center gap-1 font-mono text-[9px] text-red-500 hover:text-red-400 border border-red-900 px-2 py-1 transition-colors disabled:opacity-50"
+                  >
+                    <Trash2 size={10} strokeWidth={1.5} />
+                    {deletingProject ? 'DELETING...' : 'DELETE PROJECT'}
+                  </button>
+                ) : null}
+              </div>
             </div>
             {project.description ? (
               <p className="text-xs text-zinc-500 mb-4">{project.description}</p>
@@ -322,6 +397,31 @@ export default function ProjectDetailPage() {
                           )}
                           <Badge variant={task.priority} />
                           <Badge variant={task.status} />
+
+                          {isCreator && task.status !== 'verified' ? (
+                            <button
+                              onClick={function (e) {
+                                e.stopPropagation();
+                                handleOverrideTask(task._id);
+                              }}
+                              title="Manually mark verified"
+                              className="text-zinc-700 hover:text-green-400 transition-colors flex-shrink-0"
+                            >
+                              <CheckCircle size={12} strokeWidth={1.5} />
+                            </button>
+                          ) : null}
+                          {isCreator ? (
+                            <button
+                              onClick={function (e) {
+                                e.stopPropagation();
+                                handleDeleteTask(task._id);
+                              }}
+                              title="Delete task"
+                              className="text-zinc-700 hover:text-red-400 transition-colors flex-shrink-0"
+                            >
+                              <Trash2 size={12} strokeWidth={1.5} />
+                            </button>
+                          ) : null}
                         </div>
                         {expandedId === task._id ? (
                           <div className="border border-zinc-800 border-t-0 px-4 py-3 mb-px bg-zinc-900/20">

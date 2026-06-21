@@ -128,3 +128,67 @@ export async function getVerificationLogs(req: Request, res: Response): Promise<
     res.status(500).json({ error: 'Internal server error' });
   }
 }
+
+export async function overrideTaskStatus(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).userId;
+    const { id } = req.params;
+
+    const task = await Task.findById(id).populate('project');
+    if (!task) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+
+    const project = task.project as any;
+    if (String(project.createdBy) !== String(userId)) {
+      res.status(403).json({ error: 'Only the project creator can override task status' });
+      return;
+    }
+
+    task.status = 'verified';
+    task.verifiedAt = new Date();
+    task.earnedPoints = task.estimatedPoints;
+    task.verificationHistory.push({
+      commitSha: 'manual-override',
+      commitMessage: 'Manually marked done by manager',
+      diffSnippet: '',
+      llmVerdict: true,
+      llmReasoning: 'Manually overridden by project manager after review.',
+      attemptedAt: new Date(),
+    });
+
+    await task.save();
+    res.json(task);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+// DELETE /api/tasks/:id
+// Manager-only (project creator)
+export async function deleteTask(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).userId;
+    const { id } = req.params;
+
+    const task = await Task.findById(id).populate('project');
+    if (!task) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+
+    const project = task.project as any;
+    if (String(project.createdBy) !== String(userId)) {
+      res.status(403).json({ error: 'Only the project creator can delete tasks' });
+      return;
+    }
+
+    await Project.findByIdAndUpdate(project._id, { $pull: { tasks: task._id } });
+    await task.deleteOne();
+
+    res.json({ deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
