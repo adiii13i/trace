@@ -38,6 +38,16 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
   });
 }
 
+export async function loginWithGoogle(code: string): Promise<{ token: string; user: any }> {
+  const res = await fetch(`${API_URL}/api/auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+  if (!res.ok) throw new Error('Google login failed');
+  return res.json();
+}
+
 export async function loginWithGithub(code: string): Promise<{ token: string; user: any }> {
   const res = await fetch(`${API_URL}/api/auth/github`, {
     method: 'POST',

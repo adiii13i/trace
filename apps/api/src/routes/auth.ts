@@ -4,10 +4,6 @@ import { User } from '../models/User';
 
 const router = Router();
 
-// POST /api/auth/github
-// Called by the frontend after GitHub redirects back with a code.
-// We exchange it for an access token, fetch the user's profile,
-// upsert them in the DB, and return a signed JWT.
 router.post('/github', async (req: Request, res: Response): Promise<void> => {
   try {
     const { code } = req.body;
@@ -26,7 +22,7 @@ router.post('/github', async (req: Request, res: Response): Promise<void> => {
         code,
       }),
     });
-    const { access_token: accessToken } = await tokenRes.json();
+    const { access_token: accessToken } = await tokenRes.json() as any;
 
     if (!accessToken) {
       res.status(400).json({ error: 'GitHub OAuth failed — bad code or app credentials' });
@@ -36,15 +32,23 @@ router.post('/github', async (req: Request, res: Response): Promise<void> => {
     // Fetch the user's profile and primary email
     const [profileRes, emailsRes] = await Promise.all([
       fetch('https://api.github.com/user', {
-        headers: { Authorization: `Bearer ${accessToken}`, 'User-Agent': 'trace-app' },
+        headers: {
+          Authorization: `token ${accessToken}`,
+          'User-Agent': 'trace-app',
+          Accept: 'application/vnd.github.v3+json',
+        },
       }),
       fetch('https://api.github.com/user/emails', {
-        headers: { Authorization: `Bearer ${accessToken}`, 'User-Agent': 'trace-app' },
+        headers: {
+          Authorization: `token ${accessToken}`,
+          'User-Agent': 'trace-app',
+          Accept: 'application/vnd.github.v3+json',
+        },
       }),
     ]);
 
-    const profile = await profileRes.json();
-    const emails  = await emailsRes.json();
+    const profile: any = await profileRes.json();
+    const emails: any = await emailsRes.json();
     const primaryEmail =
       (Array.isArray(emails) ? emails.find((e: any) => e.primary)?.email : null) ??
       profile.email ??
@@ -102,6 +106,95 @@ router.get('/me', async (req: Request, res: Response): Promise<void> => {
     res.json(user);
   } catch {
     res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+router.post('/google', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { code } = req.body;
+    if (!code) {
+      res.status(400).json({ error: 'Missing OAuth code' });
+      return;
+    }
+
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id:     process.env.GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        redirect_uri:  `${process.env.FRONTEND_URL}/auth/google`,
+        grant_type:    'authorization_code',
+      }),
+    });
+
+    const tokenData: any = await tokenRes.json();
+    const accessToken: string = tokenData.access_token;
+
+    if (!accessToken) {
+      res.status(400).json({ error: 'Google OAuth failed — bad code or app credentials' });
+      return;
+    }
+
+    // Fetch Google user profile
+    const profileRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const profile: any = await profileRes.json();
+
+    const email: string   = profile.email ?? '';
+    const googleId: string = String(profile.id);
+    const login: string   = profile.name ?? email.split('@')[0];
+    const avatarUrl: string = profile.picture ?? '';
+
+    if (!email) {
+      res.status(400).json({ error: 'Could not retrieve email from Google account' });
+      return;
+    }
+
+    // Try to find existing user — first by googleId, then by email (links accounts)
+    let user = await User.findOne({ googleId });
+
+    if (!user) {
+      // Check if a GitHub-created account exists with the same email
+      user = await User.findOne({ email: email.toLowerCase() });
+
+      if (user) {
+        // Link Google ID to existing account
+        user.googleId  = googleId;
+        user.avatarUrl = user.avatarUrl || avatarUrl;
+        await user.save();
+      } else {
+        // Brand new user — create account
+        user = await User.create({
+          googleId,
+          login,
+          email:     email.toLowerCase(),
+          avatarUrl,
+        });
+      }
+    }
+
+    const token = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET!,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id:        user._id,
+        login:     user.login,
+        email:     user.email,
+        role:      user.role,
+        avatarUrl: user.avatarUrl,
+      },
+    });
+  } catch (err) {
+    console.error('[auth] google error:', err);
+    res.status(500).json({ error: 'Authentication failed' });
   }
 });
 

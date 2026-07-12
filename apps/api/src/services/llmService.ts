@@ -35,7 +35,7 @@ async function callAnthropic(system: string, user: string, maxTokens: number): P
 
   if (!res.ok) throw new Error(`Anthropic API error: ${res.status}`);
 
-  const data = await res.json();
+  const data: any = await res.json();
   return { text: data.content?.[0]?.text ?? '' };
 }
 
@@ -48,9 +48,9 @@ async function callGroq(system: string, user: string, maxTokens: number): Promis
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
-      Authorization:  `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
     body: JSON.stringify({
       model: process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
       max_tokens: maxTokens,
@@ -63,7 +63,7 @@ async function callGroq(system: string, user: string, maxTokens: number): Promis
 
   if (!res.ok) throw new Error(`Groq API error: ${res.status}`);
 
-  const data = await res.json();
+  const data: any = await res.json();
   return { text: data.choices?.[0]?.message?.content ?? '' };
 }
 
